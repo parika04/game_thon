@@ -101,38 +101,41 @@ export const usePuzzle = (gameState, gridSize = 3, imageSrc = 'https://picsum.ph
       const originY = boardRect.top + paddingTop;
       const pieceWidth = boardSize.width / gridSize;
       const pieceHeight = boardSize.height / gridSize;
-      
-      for (let row = 0; row < gridSize; row++) {
-        for (let col = 0; col < gridSize; col++) {
-          const cellX = originX + col * pieceWidth;
-          const cellY = originY + row * pieceHeight;
-          
-          if (Math.abs(e.clientX - cellX) < pieceWidth / 2 && 
-              Math.abs(e.clientY - cellY) < pieceHeight / 2) {
-            
-            // Check if this is the correct position for this piece
+
+      // Cursor position relative to the board content
+      const localX = e.clientX - originX;
+      const localY = e.clientY - originY;
+
+      // Check if cursor is within the board area
+      if (localX >= 0 && localY >= 0 && localX <= boardSize.width && localY <= boardSize.height) {
+        const col = Math.floor(localX / pieceWidth);
+        const row = Math.floor(localY / pieceHeight);
+        if (row >= 0 && row < gridSize && col >= 0 && col < gridSize) {
+          // Ensure target cell is empty
+          const isOccupied = puzzleBoard[row] && puzzleBoard[row][col] !== null;
+          if (!isOccupied) {
+            // Only allow placing on the correct cell
             if (selectedPiece.correctPosition === row * gridSize + col) {
               // Place piece correctly
               setPuzzlePieces(prev => prev.map(piece => 
                 piece.id === selectedPiece.id ? { ...piece, isPlaced: true } : piece
               ));
-              
+
               setPuzzleBoard(prev => {
-                const newBoard = prev.map(row => [...row]);
+                const newBoard = prev.map(r => [...r]);
                 newBoard[row][col] = selectedPiece.id;
                 return newBoard;
               });
-              
+
               // Check if puzzle is complete
               const updatedPieces = puzzlePieces.map(piece => 
                 piece.id === selectedPiece.id ? { ...piece, isPlaced: true } : piece
               );
-              
+
               if (updatedPieces.every(piece => piece.isPlaced)) {
                 socket.emit('puzzleComplete', { roomId, playerId: playerName });
               }
             }
-            break;
           }
         }
       }
