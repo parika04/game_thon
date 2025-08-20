@@ -11,7 +11,9 @@ export const useSocket = ({
 	setGameState,
 	setTimer,
 	setPuzzlePieces,
-	playerName
+	playerName,
+	setGridSize,
+	setImageSrc
 }) => {
 	useEffect(() => {
 		socket.on('timerUpdate', (newTime) => {
@@ -21,7 +23,10 @@ export const useSocket = ({
 			}
 		});
 
-		socket.on('gameStart', () => {
+		socket.on('gameStart', (settings) => {
+			// settings: { gridSize, imageSrc }
+			if (settings?.gridSize) setGridSize(settings.gridSize);
+			if (settings?.imageSrc) setImageSrc(settings.imageSrc);
 			setGameState('playing');
 		});
 
@@ -74,7 +79,7 @@ export const useSocket = ({
 			socket.off('gameComplete');
 			socket.off('roomJoinError');
 		};
-	}, [playerName, setAvailableRooms, setRoomId, setPlayersInRoom, setIsHost, setGameState, setTimer, setPuzzlePieces]);
+	}, [playerName, setAvailableRooms, setRoomId, setPlayersInRoom, setIsHost, setGameState, setTimer, setPuzzlePieces, setGridSize, setImageSrc]);
 
 	return socket;
 };

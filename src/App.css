@@ -2,7 +2,8 @@
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   position: relative;
 }
 
@@ -259,8 +260,9 @@
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  height: calc(100vh - 120px);
+  min-height: calc(100vh - 120px);
   position: relative;
+  gap: 12px;
 }
 
 .puzzle-board {
@@ -289,8 +291,8 @@
 .pieces-container {
   position: relative;
   width: 100%;
-  height: 100%;
-  overflow: hidden;
+  height: 60vh;
+  overflow: auto;
 }
 
 .puzzle-piece {
@@ -362,7 +364,7 @@
   }
   
   .puzzle-board {
-    transform: scale(0.8);
+    transform: scale(0.85);
     margin-bottom: 10px;
   }
   

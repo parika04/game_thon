@@ -16,6 +16,8 @@ const PORT = 4000;
 let rooms = {};
 // Map sockets to { roomId, playerName }
 const socketToPlayer = new Map();
+const DEFAULT_IMAGE_SRC = 'https://picsum.photos/800/600';
+const DEFAULT_GRID_SIZE = 3;
 
 // Generate a random room ID
 const generateRoomId = () => {
@@ -43,7 +45,9 @@ io.on('connection', (socket) => {
       gameState: 'waiting',
       pieces: [],
       board: [],
-      host: playerName
+      host: playerName,
+      gridSize: DEFAULT_GRID_SIZE,
+      imageSrc: DEFAULT_IMAGE_SRC
     };
     
     socket.join(roomId);
@@ -67,40 +71,56 @@ io.on('connection', (socket) => {
 
   socket.on('joinRoom', ({ roomId, playerName }) => {
     if (rooms[roomId] && rooms[roomId].gameState === 'waiting') {
-      if (rooms[roomId].players.size >= 4) {
+      if (rooms[roomId].players.size >= 2) {
         socket.emit('roomJoinError', 'Room is full');
         return;
       }
-      
+  
       rooms[roomId].players.add(playerName);
       socket.join(roomId);
       socketToPlayer.set(socket.id, { roomId, playerName });
-      
+  
       const playersArray = Array.from(rooms[roomId].players);
-      socket.emit('roomJoined', { 
-        roomId, 
-        players: playersArray, 
-        isHost: false 
+      socket.emit('roomJoined', {
+        roomId,
+        players: playersArray,
+        isHost: false
       });
-      
-      // Notify other players in the room
-      socket.to(roomId).emit('playerJoined', { 
-        playerName, 
-        players: playersArray 
+  
+      socket.to(roomId).emit('playerJoined', {
+        playerName,
+        players: playersArray
       });
-      
-      // Update available rooms for all clients
-      io.emit('availableRooms', Object.keys(rooms).map(roomId => ({
-        id: roomId,
-        players: Array.from(rooms[roomId].players),
-        gameState: rooms[roomId].gameState
+  
+      // Broadcast updated list of available rooms to all clients
+      io.emit('availableRooms', Object.keys(rooms).map(rId => ({
+        id: rId,
+        players: Array.from(rooms[rId].players),
+        gameState: rooms[rId].gameState
       })).filter(room => room.gameState === 'waiting'));
-      
+  
       console.log(`Player ${playerName} joined room ${roomId}`);
+  
+      // Automatically start game when room reaches 2 players
+      if (rooms[roomId].players.size === 2) {
+        rooms[roomId].gameState = 'playing';
+        rooms[roomId].timer = 300; // Reset timer when starting
+        io.to(roomId).emit('gameStart', {
+          gridSize: rooms[roomId].gridSize || DEFAULT_GRID_SIZE,
+          imageSrc: rooms[roomId].imageSrc || DEFAULT_IMAGE_SRC
+        });
+        io.emit('availableRooms', Object.keys(rooms).map(rId => ({
+          id: rId,
+          players: Array.from(rooms[rId].players),
+          gameState: rooms[rId].gameState
+        })).filter(room => room.gameState === 'waiting'));
+        console.log(`Game started automatically in room ${roomId}`);
+      }
     } else {
       socket.emit('roomJoinError', 'Room not found or game already started');
     }
   });
+  
 
   socket.on('leaveRoom', ({ roomId, playerName }) => {
     if (rooms[roomId]) {
@@ -133,12 +153,18 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('startGame', ({ roomId }) => {
+  socket.on('startGame', ({ roomId, gridSize, imageSrc }) => {
     console.log(`Attempting to start game in room ${roomId}`);
     if (rooms[roomId]) {
       rooms[roomId].gameState = 'playing';
       rooms[roomId].timer = 300;
-      io.to(roomId).emit('gameStart');
+      // Persist settings for the room; apply defaults if missing
+      rooms[roomId].gridSize = Number.isFinite(gridSize) ? gridSize : (rooms[roomId].gridSize || DEFAULT_GRID_SIZE);
+      rooms[roomId].imageSrc = imageSrc || rooms[roomId].imageSrc || DEFAULT_IMAGE_SRC;
+      io.to(roomId).emit('gameStart', { 
+        gridSize: rooms[roomId].gridSize, 
+        imageSrc: rooms[roomId].imageSrc 
+      });
       
       // Update available rooms for all clients
       io.emit('availableRooms', Object.keys(rooms).map(roomId => ({

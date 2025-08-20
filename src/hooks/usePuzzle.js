@@ -1,15 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
 
-// Sample puzzle image (you can replace with any image URL)
-const PUZZLE_IMAGE = 'https://picsum.photos/400/300';
-
-export const usePuzzle = (gameState, gridSize = 3) => {
+export const usePuzzle = (gameState, gridSize = 3, imageSrc = 'https://picsum.photos/800/600') => {
   const [puzzlePieces, setPuzzlePieces] = useState([]);
   const [puzzleBoard, setPuzzleBoard] = useState([]);
   const [selectedPiece, setSelectedPiece] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const boardRef = useRef(null);
+  const [boardSize, setBoardSize] = useState({ width: 400, height: 300 });
+
+  // Compute board size based on image dimensions while maintaining aspect ratio
+  useEffect(() => {
+    if (!imageSrc) return;
+    const img = new Image();
+    img.onload = () => {
+      const maxWidth = 500; // render width cap for consistency
+      const aspectRatio = img.height / img.width;
+      const width = maxWidth;
+      const height = Math.round(width * aspectRatio);
+      setBoardSize({ width, height });
+    };
+    img.src = imageSrc;
+  }, [imageSrc]);
 
   // Initialize puzzle pieces
   useEffect(() => {
@@ -80,16 +92,23 @@ export const usePuzzle = (gameState, gridSize = 3) => {
     
     // Check if piece is near correct position on board
     if (boardRef.current) {
-      const boardRect = boardRef.current.getBoundingClientRect();
-      const pieceSize = 400 / gridSize;
+      const boardElement = boardRef.current;
+      const boardRect = boardElement.getBoundingClientRect();
+      const computed = window.getComputedStyle(boardElement);
+      const paddingLeft = parseFloat(computed.paddingLeft) || 0;
+      const paddingTop = parseFloat(computed.paddingTop) || 0;
+      const originX = boardRect.left + paddingLeft;
+      const originY = boardRect.top + paddingTop;
+      const pieceWidth = boardSize.width / gridSize;
+      const pieceHeight = boardSize.height / gridSize;
       
       for (let row = 0; row < gridSize; row++) {
         for (let col = 0; col < gridSize; col++) {
-          const cellX = boardRect.left + col * pieceSize;
-          const cellY = boardRect.top + row * pieceSize;
+          const cellX = originX + col * pieceWidth;
+          const cellY = originY + row * pieceHeight;
           
-          if (Math.abs(e.clientX - cellX) < pieceSize / 2 && 
-              Math.abs(e.clientY - cellY) < pieceSize / 2) {
+          if (Math.abs(e.clientX - cellX) < pieceWidth / 2 && 
+              Math.abs(e.clientY - cellY) < pieceHeight / 2) {
             
             // Check if this is the correct position for this piece
             if (selectedPiece.correctPosition === row * gridSize + col) {
@@ -123,16 +142,17 @@ export const usePuzzle = (gameState, gridSize = 3) => {
   };
 
   const getPieceStyle = (piece) => {
-    const pieceSize = 400 / gridSize;
+    const pieceWidth = boardSize.width / gridSize;
+    const pieceHeight = boardSize.height / gridSize;
     const row = Math.floor(piece.correctPosition / gridSize);
     const col = piece.correctPosition % gridSize;
     
     return {
-      width: pieceSize,
-      height: pieceSize,
-      backgroundImage: `url(${PUZZLE_IMAGE})`,
-      backgroundSize: `${400}px ${300}px`,
-      backgroundPosition: `-${col * pieceSize}px -${row * pieceSize}px`,
+      width: pieceWidth,
+      height: pieceHeight,
+      backgroundImage: `url(${imageSrc})`,
+      backgroundSize: `${boardSize.width}px ${boardSize.height}px`,
+      backgroundPosition: `-${col * pieceWidth}px -${row * pieceHeight}px`,
       border: piece.isPlaced ? '2px solid #4CAF50' : '1px solid #ccc',
       cursor: isDragging && selectedPiece?.id === piece.id ? 'grabbing' : 'grab',
       position: 'absolute',
@@ -144,13 +164,14 @@ export const usePuzzle = (gameState, gridSize = 3) => {
   };
 
   const getBoardCellStyle = (row, col) => {
-    const pieceSize = 400 / gridSize;
+    const pieceWidth = boardSize.width / gridSize;
+    const pieceHeight = boardSize.height / gridSize;
     
     // Check if puzzleBoard[row] exists before accessing it
     if (!puzzleBoard[row] || puzzleBoard[row][col] === undefined) {
       return {
-        width: pieceSize,
-        height: pieceSize,
+        width: pieceWidth,
+        height: pieceHeight,
         border: '1px solid #ccc',
         backgroundColor: '#f9f9f9'
       };
@@ -164,19 +185,19 @@ export const usePuzzle = (gameState, gridSize = 3) => {
       const pieceCol = piece.correctPosition % gridSize;
       
       return {
-        width: pieceSize,
-        height: pieceSize,
-        backgroundImage: `url(${PUZZLE_IMAGE})`,
-        backgroundSize: `${400}px ${300}px`,
-        backgroundPosition: `-${pieceCol * pieceSize}px -${pieceRow * pieceSize}px`,
+        width: pieceWidth,
+        height: pieceHeight,
+        backgroundImage: `url(${imageSrc})`,
+        backgroundSize: `${boardSize.width}px ${boardSize.height}px`,
+        backgroundPosition: `-${pieceCol * pieceWidth}px -${pieceRow * pieceHeight}px`,
         border: '1px solid #333',
         backgroundColor: '#f0f0f0'
       };
     }
     
     return {
-      width: pieceSize,
-      height: pieceSize,
+      width: pieceWidth,
+      height: pieceHeight,
       border: '1px solid #ccc',
       backgroundColor: '#f9f9f9'
     };
@@ -188,6 +209,7 @@ export const usePuzzle = (gameState, gridSize = 3) => {
     puzzleBoard,
     selectedPiece,
     isDragging,
+    dragOffset,
     boardRef,
     handleMouseDown,
     handleMouseMove,

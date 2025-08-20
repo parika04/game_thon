@@ -16,7 +16,8 @@ function App() {
   // Game state
   const [gameState, setGameState] = useState('lobby'); // lobby, waiting, playing, completed
   const [timer, setTimer] = useState(300);
-  const [gridSize] = useState(3); // 3x3 puzzle
+  const [gridSize, setGridSize] = useState(3); // dynamic grid size
+  const [imageSrc, setImageSrc] = useState('https://picsum.photos/800/600');
   
   // Lobby state
   const [playerName, setPlayerName] = useState('');
@@ -32,13 +33,14 @@ function App() {
     puzzleBoard,
     selectedPiece,
     isDragging,
+    dragOffset,
     boardRef,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
     getPieceStyle,
     getBoardCellStyle
-  } = usePuzzle(gameState, gridSize);
+  } = usePuzzle(gameState, gridSize, imageSrc);
 
   // Socket hook
   const socket = useSocket({
@@ -49,7 +51,9 @@ function App() {
     setGameState,
     setTimer,
     setPuzzlePieces,
-    playerName
+    playerName,
+    setGridSize,
+    setImageSrc
   });
 
   // Room management functions
@@ -77,7 +81,7 @@ function App() {
     console.log('roomId:', roomId);
     if (isHost) {
       console.log('Emitting startGame event with roomId:', roomId);
-      socket.emit('startGame', { roomId });
+      socket.emit('startGame', { roomId, gridSize, imageSrc });
     } else {
       console.log('Not host, cannot start game');
     }
@@ -94,14 +98,14 @@ function App() {
   // Enhanced mouse handlers for puzzle
   const handlePuzzleMouseMove = (e) => {
     if (!isDragging || !selectedPiece) return;
-    
-    const newX = e.clientX - (e.clientX - selectedPiece.x);
-    const newY = e.clientY - (e.clientY - selectedPiece.y);
-    
+
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+
     setPuzzlePieces(prev => prev.map(piece => 
       piece.id === selectedPiece.id ? { ...piece, x: newX, y: newY } : piece
     ));
-    
+
     socket.emit('movePiece', { 
       roomId, 
       pieceId: selectedPiece.id, 
@@ -134,8 +138,6 @@ function App() {
   return (
     <div 
       className="App"
-      onMouseMove={gameState === 'playing' ? handlePuzzleMouseMove : undefined}
-      onMouseUp={gameState === 'playing' ? handlePuzzleMouseUp : undefined}
       style={{ cursor: isDragging ? 'grabbing' : 'default' }}
     >
       <GameHeader 
@@ -151,6 +153,10 @@ function App() {
           isHost={isHost}
           startGame={startGame}
           leaveRoom={leaveRoom}
+          gridSize={gridSize}
+          setGridSize={setGridSize}
+          imageSrc={imageSrc}
+          setImageSrc={setImageSrc}
         />
       )}
 
