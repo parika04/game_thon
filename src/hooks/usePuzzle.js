@@ -135,6 +135,9 @@ export const usePuzzle = (gameState, gridSize = 3, imageSrc = 'https://picsum.ph
               if (updatedPieces.every(piece => piece.isPlaced)) {
                 socket.emit('puzzleComplete', { roomId, playerId: playerName });
               }
+
+              // Notify others about placement
+              socket.emit('placePiece', { roomId, pieceId: selectedPiece.id, row, col, playerId: playerName });
             }
           }
         }
@@ -209,6 +212,7 @@ export const usePuzzle = (gameState, gridSize = 3, imageSrc = 'https://picsum.ph
   return {
     puzzlePieces,
     setPuzzlePieces,
+    setPuzzleBoard,
     puzzleBoard,
     selectedPiece,
     isDragging,

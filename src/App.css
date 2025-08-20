@@ -5,6 +5,8 @@
   overflow-x: hidden;
   overflow-y: auto;
   position: relative;
+  padding-top: 24px;
+  padding-bottom: 24px;
 }
 
 .header {

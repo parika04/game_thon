@@ -30,6 +30,7 @@ function App() {
   const {
     puzzlePieces,
     setPuzzlePieces,
+    setPuzzleBoard,
     puzzleBoard,
     selectedPiece,
     isDragging,
@@ -51,6 +52,7 @@ function App() {
     setGameState,
     setTimer,
     setPuzzlePieces,
+    setPuzzleBoard,
     playerName,
     setGridSize,
     setImageSrc

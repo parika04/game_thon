@@ -11,6 +11,7 @@ export const useSocket = ({
 	setGameState,
 	setTimer,
 	setPuzzlePieces,
+	setPuzzleBoard,
 	playerName,
 	setGridSize,
 	setImageSrc
@@ -33,6 +34,18 @@ export const useSocket = ({
 		socket.on('pieceMoved', ({ pieceId, x, y, playerId }) => {
 			if (playerId !== playerName) {
 				setPuzzlePieces((prev) => prev.map((piece) => (piece.id === pieceId ? { ...piece, x, y } : piece)));
+			}
+		});
+
+		// Sync placements from other players
+		socket.on('piecePlaced', ({ pieceId, row, col, playerId }) => {
+			if (playerId !== playerName) {
+				setPuzzlePieces((prev) => prev.map((p) => (p.id === pieceId ? { ...p, isPlaced: true } : p)));
+				setPuzzleBoard((prev) => {
+					const next = prev.map(r => [...r]);
+					next[row][col] = pieceId;
+					return next;
+				});
 			}
 		});
 
@@ -72,6 +85,7 @@ export const useSocket = ({
 			socket.off('timerUpdate');
 			socket.off('gameStart');
 			socket.off('pieceMoved');
+			socket.off('piecePlaced');
 			socket.off('availableRooms');
 			socket.off('roomJoined');
 			socket.off('playerJoined');
@@ -79,7 +93,7 @@ export const useSocket = ({
 			socket.off('gameComplete');
 			socket.off('roomJoinError');
 		};
-	}, [playerName, setAvailableRooms, setRoomId, setPlayersInRoom, setIsHost, setGameState, setTimer, setPuzzlePieces, setGridSize, setImageSrc]);
+	}, [playerName, setAvailableRooms, setRoomId, setPlayersInRoom, setIsHost, setGameState, setTimer, setPuzzlePieces, setPuzzleBoard, setGridSize, setImageSrc]);
 
 	return socket;
 };

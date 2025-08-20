@@ -16,7 +16,7 @@ const PORT = 4000;
 let rooms = {};
 // Map sockets to { roomId, playerName }
 const socketToPlayer = new Map();
-const DEFAULT_IMAGE_SRC = 'https://picsum.photos/800/600';
+const DEFAULT_IMAGE_BASE = 'https://picsum.photos/800/600';
 const DEFAULT_GRID_SIZE = 3;
 
 // Generate a random room ID
@@ -47,7 +47,8 @@ io.on('connection', (socket) => {
       board: [],
       host: playerName,
       gridSize: DEFAULT_GRID_SIZE,
-      imageSrc: DEFAULT_IMAGE_SRC
+      // Seeded default so all clients get the same image (no random Picsum)
+      imageSrc: `https://picsum.photos/seed/${roomId}/800/600`
     };
     
     socket.join(roomId);
@@ -101,21 +102,7 @@ io.on('connection', (socket) => {
   
       console.log(`Player ${playerName} joined room ${roomId}`);
   
-      // Automatically start game when room reaches 2 players
-      if (rooms[roomId].players.size === 2) {
-        rooms[roomId].gameState = 'playing';
-        rooms[roomId].timer = 300; // Reset timer when starting
-        io.to(roomId).emit('gameStart', {
-          gridSize: rooms[roomId].gridSize || DEFAULT_GRID_SIZE,
-          imageSrc: rooms[roomId].imageSrc || DEFAULT_IMAGE_SRC
-        });
-        io.emit('availableRooms', Object.keys(rooms).map(rId => ({
-          id: rId,
-          players: Array.from(rooms[rId].players),
-          gameState: rooms[rId].gameState
-        })).filter(room => room.gameState === 'waiting'));
-        console.log(`Game started automatically in room ${roomId}`);
-      }
+      // Do not auto-start. Host must click Start Game.
     } else {
       socket.emit('roomJoinError', 'Room not found or game already started');
     }
@@ -156,11 +143,28 @@ io.on('connection', (socket) => {
   socket.on('startGame', ({ roomId, gridSize, imageSrc }) => {
     console.log(`Attempting to start game in room ${roomId}`);
     if (rooms[roomId]) {
+      // Only the host can start the game
+      const mapping = socketToPlayer.get(socket.id);
+      const isHost = mapping && mapping.playerName === rooms[roomId].host;
+      if (!isHost) {
+        socket.emit('roomJoinError', 'Only the host can start the game');
+        return;
+      }
       rooms[roomId].gameState = 'playing';
       rooms[roomId].timer = 300;
       // Persist settings for the room; apply defaults if missing
       rooms[roomId].gridSize = Number.isFinite(gridSize) ? gridSize : (rooms[roomId].gridSize || DEFAULT_GRID_SIZE);
-      rooms[roomId].imageSrc = imageSrc || rooms[roomId].imageSrc || DEFAULT_IMAGE_SRC;
+      const currentDefaultSeeded = rooms[roomId].imageSrc || `https://picsum.photos/seed/${roomId}/800/600`;
+      let nextImage = imageSrc || currentDefaultSeeded;
+      // If the client sent a non-seeded Picsum default (random each load), convert to seeded by roomId
+      if (typeof nextImage === 'string') {
+        const plainPicsumRegex = /^https?:\/\/picsum\.photos\/(?:\d+|\d+\/\d+)(?:$|\?.*)/;
+        const exactDefault = nextImage === DEFAULT_IMAGE_BASE;
+        if (exactDefault || plainPicsumRegex.test(nextImage)) {
+          nextImage = `https://picsum.photos/seed/${roomId}/800/600`;
+        }
+      }
+      rooms[roomId].imageSrc = nextImage;
       io.to(roomId).emit('gameStart', { 
         gridSize: rooms[roomId].gridSize, 
         imageSrc: rooms[roomId].imageSrc 
@@ -183,6 +187,13 @@ io.on('connection', (socket) => {
     if (rooms[roomId]) {
       // Broadcast piece movement to other players in the room
       socket.to(roomId).emit('pieceMoved', { pieceId, x, y, playerId });
+    }
+  });
+
+  socket.on('placePiece', ({ roomId, pieceId, row, col, playerId }) => {
+    if (rooms[roomId]) {
+      // Trust the client for now; broadcast placement so all clients sync
+      socket.to(roomId).emit('piecePlaced', { pieceId, row, col, playerId });
     }
   });
 
